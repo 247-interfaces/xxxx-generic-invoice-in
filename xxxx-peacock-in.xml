@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<config>
+<datapad>.</datapad>
+<smtp>
+    <to>support@247interfaces.nl</to>
+    <from>247bots1@247interfaces.eu</from>
+    <login>247bots1@247interfaces.eu</login>
+    <pass>Ci05I0PbX</pass>
+    <server>mail.247interfaces.eu</server>
+</smtp>
+<mailerror>off</mailerror>
+
+</config>
