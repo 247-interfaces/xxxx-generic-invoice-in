@@ -5,6 +5,20 @@ import os
 import shutil
 import my247
 
+class Invoice:
+    def __init__(self, factdat):
+        self.DTM = {'137' : factdat}
+        self.NAD = {}
+        self.RFF = {}
+        self.LIN = []
+
+class Invoices:
+    def __init__(self, sender, sendercq, recipient, recipientcq):
+        self.UNH = {}
+        self.sender = sender
+        self.sendercq = sendercq
+        self.recipient = recipient
+        self.recipientcq = recipientcq
 
 
 def log(regel):
@@ -22,39 +36,33 @@ def inv_uit(xmldata):
     @param xmldata:
     @return:
     '''
-    uitfact = {'UNH': {}}
-    uitfact['Sender'] = '8712423036635' # uit config gaan lezen
-    uitfact['Sendercq'] = '14'
-    uitfact['Recipient'] = xmldata['AfasGetConnector']['GetLine'][0]['GLNUNB']
-    uitfact['Recipientcq'] = '14'
-
+    uitfact = Invoices('8712423036635','14',xmldata['AfasGetConnector']['GetLine'][0]['GLNUNB'], '14')
 
     for fline in xmldata['AfasGetConnector']['GetLine']:
-        if not(fline['Factuurnummer'][-14:] in uitfact['UNH'].keys()):
+        if not(fline['Factuurnummer'][-14:] in uitfact.UNH.keys()):
             # nieuwe factuur aanmaken
-            uitfact['UNH'][fline['Factuurnummer'][-14:]] = {'DTM' : {}, 'NAD' : {}, 'RFF' : {}, 'LIN': []} # nieuwe factuur toevoegen
-            uitfact['UNH'][fline['Factuurnummer'][-14:]]['NAD']['DP'] = { 'party' : fline['GLN-DP-Delivery'], 'code' : '9'}
-            uitfact['UNH'][fline['Factuurnummer'][-14:]]['NAD']['BY'] = { 'party' : fline['GLNBY_Afnemer'], 'code' : '9', 'RFF' : {'VA' : [ fline['Btw-identificatienummer'] ]}}
-            uitfact['UNH'][fline['Factuurnummer'][-14:]]['NAD']['IV'] = { 'party' : fline['NADIV'], 'code' : '9'}
-            uitfact['UNH'][fline['Factuurnummer'][-14:]]['NAD']['UC'] = { 'party' : fline['GLN-UC-Eindbestemmimng'], 'code' : '9'}
-            uitfact['UNH'][fline['Factuurnummer'][-14:]]['DTM']['137'] = fline['Factuurdatum']
-            uitfact['UNH'][fline['Factuurnummer'][-14:]]['RFF']['ON'] = [{'text' : fline['Referentie_verkooprelatie'] }]
-            uitfact['UNH'][fline['Factuurnummer'][-14:]]['RFF']['AAK'] = [{'text' : fline['Bijbehorende_pakbon'] }]
-            uitfact['UNH'][fline['Factuurnummer'][-14:]]['test'] = fline['Factuur_Test'] == 'true' # binaire logica om hoofdpijn van te krijgen. In een non-test factuur staat false.
+            uitfact.UNH[fline['Factuurnummer'][-14:]] = Invoice(datetime.strptime(fline['Factuurdatum'],"%Y-%m-%dT%H:%M:%SZ"))
+            uitfact.UNH[fline['Factuurnummer'][-14:]].NAD['DP'] = { 'party' : fline['GLN-DP-Delivery'], 'code' : '9'}
+            uitfact.UNH[fline['Factuurnummer'][-14:]].NAD['BY'] = { 'party' : fline['GLNBY_Afnemer'], 'code' : '9', 'RFF' : {'VA' : [ fline['Btw-identificatienummer'] ]}}
+            uitfact.UNH[fline['Factuurnummer'][-14:]].NAD['IV'] = { 'party' : fline['NADIV'], 'code' : '9'}
+            uitfact.UNH[fline['Factuurnummer'][-14:]].NAD['UC'] = { 'party' : fline['GLN-UC-Eindbestemmimng'], 'code' : '9'}
+            uitfact.UNH[fline['Factuurnummer'][-14:]].RFF['ON'] = [{'text' : fline['Referentie_verkooprelatie'] }]
+            uitfact.UNH[fline['Factuurnummer'][-14:]].RFF['AAK'] = [{'text' : fline['Bijbehorende_pakbon'] }]
+#            uitfact.UNH[fline['Factuurnummer'][-14:]]['test'] = fline['Factuur_Test'] == 'true' # binaire logica om hoofdpijn van te krijgen. In een non-test factuur staat false.
                                                                                               # test op == 'false' geeft True, en dat is precies wat we niet willen opslaan.
 
         # factuur regel toevoegen
-        uitfact['UNH'][fline['Factuurnummer'][-14:]]['LIN'].append({'QTY' : {}})
-        uitfact['UNH'][fline['Factuurnummer'][-14:]]['LIN'][-1]['QTY']['47'] = float(fline['Aantal']) # In hoeverre moeten we het hier ook in '12' zetten? Ja doen we in de in-mapping
-        uitfact['UNH'][fline['Factuurnummer'][-14:]]['LIN'][-1]['QTY']['12'] = float(fline['Aantal'])
+        uitfact.UNH[fline['Factuurnummer'][-14:]].LIN.append({'QTY' : {}})
+        uitfact.UNH[fline['Factuurnummer'][-14:]].LIN[-1]['QTY']['47'] = float(fline['Aantal']) # In hoeverre moeten we het hier ook in '12' zetten? Ja doen we in de in-mapping
+        uitfact.UNH[fline['Factuurnummer'][-14:]].LIN[-1]['QTY']['12'] = float(fline['Aantal'])
         if 'Barcode' in fline.keys():
-            uitfact['UNH'][fline['Factuurnummer'][-14:]]['LIN'][-1]['Itemid'] = fline['Barcode']
-            uitfact['UNH'][fline['Factuurnummer'][-14:]]['LIN'][-1]['Itemidcode'] = 'EN' # oude code voor SRV = GTIN? Moeten we hier niet 'SRV' invullen? EN = 96A, SRV = 01B
-        uitfact['UNH'][fline['Factuurnummer'][-14:]]['LIN'][-1]['IMD'] = fline['Omschrijving']
-        uitfact['UNH'][fline['Factuurnummer'][-14:]]['LIN'][-1]['PIA'] = {'SA' : fline['Itemcode']}
-        uitfact['UNH'][fline['Factuurnummer'][-14:]]['LIN'][-1]['PRI'] = {'INV' : fline['Prijs_per_eenheid']} # bruto
-        uitfact['UNH'][fline['Factuurnummer'][-14:]]['LIN'][-1]['PRI'] = {'AAA' : fline['Nettoprijs']} # Netto
-        uitfact['UNH'][fline['Factuurnummer'][-14:]]['LIN'][-1]['MOA'] = {'203': fline['Regelbedrag']}
+            uitfact.UNH[fline['Factuurnummer'][-14:]].LIN[-1]['Itemid'] = fline['Barcode']
+            uitfact.UNH[fline['Factuurnummer'][-14:]].LIN[-1]['Itemidcode'] = 'EN' # oude code voor SRV = GTIN? Moeten we hier niet 'SRV' invullen? EN = 96A, SRV = 01B
+        uitfact.UNH[fline['Factuurnummer'][-14:]].LIN[-1]['IMD'] = fline['Omschrijving']
+        uitfact.UNH[fline['Factuurnummer'][-14:]].LIN[-1]['PIA'] = {'SA' : fline['Itemcode']}
+        uitfact.UNH[fline['Factuurnummer'][-14:]].LIN[-1]['PRI'] = {'INV' : fline['Prijs_per_eenheid']} # bruto
+        uitfact.UNH[fline['Factuurnummer'][-14:]].LIN[-1]['PRI'] = {'AAA' : fline['Nettoprijs']} # Netto
+        uitfact.UNH[fline['Factuurnummer'][-14:]].LIN[-1]['MOA'] = {'203': fline['Regelbedrag']}
 
 
     print(uitfact)
